@@ -1,0 +1,43 @@
+name: Build & Deploy
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches: [ "main" ]
+    types:
+      - closed
+
+jobs:
+  deploy:
+    if: github.event.pull_request.merged == true
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - name: Set Node.js 16.x
+        uses: actions/setup-node@v3
+        with:
+          node-version: 16.x
+      - name: Run install
+        uses: borales/actions-yarn@v4
+        with:
+          cmd: install # will run `yarn install` command
+      - name: Create env file
+        run: |
+          touch .env
+          echo "${{ secrets.ENV_FILE }}" > .env
+      - name: Build production bundle
+        uses: borales/actions-yarn@v4
+        with:
+          cmd: generate # will run nuxt generate` command
+      - name: copy file via ssh password
+        uses: appleboy/scp-action@master
+        with:
+          host: ${{secrets.SSH_HOST}}
+          key: ${{secrets.SSH_KEY}}
+          username: ${{secrets.SSH_USERNAME}}
+          passphrase: ${{secrets.PASSPHRASE}}
+          rm: true
+          source: 'dist/*'
+          target: '/var/www/build'
